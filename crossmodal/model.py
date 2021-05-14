@@ -1,4 +1,3 @@
-from argparse import Namespace
 from functools import partial
 import glob
 import os
@@ -10,6 +9,7 @@ import numpy as np
 import pytorch_lightning as pl
 import torch
 
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 class MLP(torch.nn.Module):
     def __init__(self, input1_dim, input2_dim, middle_dim, output_dim):
@@ -81,20 +81,6 @@ class Baseline(pl.LightningModule):
         return {'avg_val_loss': avg_loss,
                 'log': {'val_loss': avg_loss},
                 'progress_bar': {'val_loss': avg_loss}}
-
-    def test_step(self, batch, batch_idx):
-        input1, input2 = batch
-        output1, output2 = self.forward(input1, input2)
-        return {'audio_embeddings': output1.to('cpu').detach().numpy(),
-                'image_embeddings': output2.to('cpu').detach().numpy()}
-
-    def test_end(self, outputs):
-        audio_embeddings = np.array(list(flatten([output['audio_embeddings'] for output in outputs])))
-        image_embeddings = np.array(list(flatten([output['image_embeddings'] for output in outputs])))
-        ndcg = evaluate(audio_embeddings, image_embeddings, ground_truth)
-        return {'ndcg': ndcg,
-                'log': {'ndcg': ndcg},
-                'progress_bar': {'ndcg': ndcg}}
 
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=self.hparams.lr)

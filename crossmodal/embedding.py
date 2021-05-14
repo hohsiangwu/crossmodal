@@ -1,25 +1,26 @@
+import glob
+import random
 import sys
 
 import click
-import glob
 import librosa
 from more_itertools import chunked
 import numpy as np
 import openl3
-# import resampy
-from sklearn.model_selection import train_test_split
+import skvideo.io
 import tensorflow as tf
 from tqdm import tqdm
 
 # Get YamNet code and pre-trained model weights in the same folder yamnet_root/
 # https://github.com/tensorflow/models/tree/master/research/audioset/yamnet
-sys.path.append('.../yamnet_root/')
+YAMNET_ROOT = '...'
+sys.path.append(YAMNET_ROOT)
 import params as yamnet_params
 import yamnet as yamnet_model
 
 
 def extract_openl3(X, batch_size=64):
-    # OpenL3 takes sr=48000
+    # OpenL3 sr=48000
     sr = 48000
     model = openl3.models.load_audio_embedding_model(input_repr='mel256', content_type='env', embedding_size=512)
     embeddings = []
@@ -30,11 +31,11 @@ def extract_openl3(X, batch_size=64):
 
 
 def extract_yamnet(X):
-    # YamNet takes sr=16000
+    # YamNet sr=16000
     sr = 16000
     params = yamnet_params.Params(sample_rate=sr, patch_hop_seconds=0.1)
     yamnet = yamnet_model.yamnet_frames_model(params)
-    yamnet.load_weights('.../yamnet_root/yamnet.h5')
+    yamnet.load_weights('{}/yamnet.h5'.format(YAMNET_ROOT))
     embeddings = []
     for x in tqdm(X):
         # x = resampy.resample(x, 48000, params.sample_rate)
@@ -64,7 +65,7 @@ def extract_vgg(X, batch_size=1024):
 @click.option('--algo', type=click.Choice(['openl3', 'yamnet', 'resnet', 'vgg'], required=True, help='Embedding algorithms.'))
 @click.option('--output_dir', required=True, help='Output folder.')
 def extract_embedding(input_dir, algo, output_dir):
-    files = glob.glob(input_dir)
+    files = sorted(glob.glob('{}/*'.format(input_dir)))
     if files[0].endswith('wav'):
         if algo == 'openl3':
             sr = 48000
@@ -74,8 +75,9 @@ def extract_embedding(input_dir, algo, output_dir):
             extractor = extract_yamnet
         else:
             assert False
-        for f in files:
-            X.extend(librosa.load(f, sr=sr))
+        X = []
+        for f in tqdm(files):
+            X.append(librosa.load(f, sr=sr)[0])
         embeddings = extractor(X)
     elif files[0].endswith('mp4'):
         if algo == 'resnet':
@@ -84,13 +86,14 @@ def extract_embedding(input_dir, algo, output_dir):
             extractor = extract_vgg
         else:
             assert False
-        # TODO: Read video and sample images
+        X = []
+        for f in tqdm(files):
+            # TODO: Sampling images
+            X.append(random.choice(skvideo.io.vread(f)))
         embeddings = extractor(X)
     else:
         assert False
-    X_train, X_valid = train_test_split(embeddings, test_size=0.1)
-    np.save('{}/{}_train.npy'.format(output_dir, algo), X_train)
-    np.save('{}/{}_valid.npy'.format(output_dir, algo), X_valid)
+    np.save('{}/{}.npy'.format(output_dir, algo), embeddings)
 
 
 if __name__ == '__main__':

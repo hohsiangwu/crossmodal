@@ -1,4 +1,5 @@
 
+from argparse import Namespace
 import logging
 import os
 import pickle
@@ -11,6 +12,8 @@ import numpy as np
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
 from pytorch_lightning.loggers.base import LightningLoggerBase
+from sklearn.model_selection import train_test_split
+import torch
 from torch.utils.data import DataLoader, TensorDataset, IterableDataset
 
 from model import Baseline
@@ -76,41 +79,32 @@ def train(embedding_dir, model_dir, audio_alg, image_alg, batch_size, lr, num_wo
     }
     hparams = Namespace(**hparams)
 
-    dataset = {
-        'image': {
-            'train': np.load('{}/{}_train.npy'.format(embedding_dir, hparams.image_alg)),
-            'valid': np.load('{}/{}_valid.npy'.format(embedding_dir, hparams.image_alg)),
-        },
-        'audio': {
-            'train': np.load('{}/{}_train.npy'.format(embedding_dir, hparams.audio_alg)),
-            'valid': np.load('{}/{}_valid.npy'.format(embedding_dir, hparams.audio_alg)),
-        }
-    }
+    audio_embeddings = np.load('{}/{}.npy'.format(embedding_dir, hparams.audio_alg))
+    image_embeddings = np.load('{}/{}.npy'.format(embedding_dir, hparams.image_alg))
+    a_train, a_valid, i_train, i_valid = train_test_split(audio_embeddings, image_embeddings, test_size=0.1, random_state=42)
 
-    log_str = '{}-{}-{}-{}'.format(saudio_alg, image_alg, 'mlp', batch_size)
-    logger = DictLogger(i)
+    log_str = '{}-{}-{}-{}'.format(audio_alg, image_alg, 'mlp', batch_size)
+    logger = DictLogger(log_str)
 
     model_path = '{}/{}/'.format(model_dir, log_str)
     model_path = model_path + '{epoch}-{val_loss:.4f}'
 
     baseline = Baseline(hparams)
     trainer = Trainer(logger=[logger],
-                        callbacks=[EarlyStopping(monitor='val_loss', patience=5),
-                                   ModelCheckpoint(filepath=model_path, monitor='val_loss', save_top_k=-1)],
-                        gpus=hparams.num_gpus,
-                        accelerator='dp',
-                        max_epochs=1000)
-    train_loader = DataLoader(TensorDataset(torch.from_numpy(dataset['audio']['train']).float().to('cpu'),
-                                            torch.from_numpy(dataset['image']['train']).float().to('cpu')),
-                                batch_size=hparams.batch_size,
-                                shuffle=True)
+                      callbacks=[EarlyStopping(monitor='val_loss', patience=5),
+                                 ModelCheckpoint(filepath=model_path, monitor='val_loss', save_top_k=-1)],
+                      gpus=hparams.num_gpus,
+                      accelerator='dp',
+                      max_epochs=1000)
+    train_loader = DataLoader(TensorDataset(torch.from_numpy(a_train), torch.from_numpy(i_train)),
+                              batch_size=hparams.batch_size,
+                              shuffle=True)
 
-    val_loader =  DataLoader(TensorDataset(torch.from_numpy(dataset['audio']['valid']).float().to('cpu'),
-                                           torch.from_numpy(dataset['image']['valid']).float().to('cpu')),
-                                batch_size=hparams.batch_size,
-                                shuffle=False)
+    val_loader =  DataLoader(TensorDataset(torch.from_numpy(a_valid), torch.from_numpy(i_valid)),
+                             batch_size=hparams.batch_size,
+                             shuffle=False)
     trainer.fit(baseline, train_loader, val_loader)
 
 
 if __name__ == '__main__':
-    trainer()
+    train()

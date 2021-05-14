@@ -61,7 +61,7 @@ def extract_vgg(X, batch_size=1024):
 
 @click.command()
 @click.option('--input_dir', required=True, help='Input folder.')
-@click.option('--algo', type=click.Choice(['openl3', 'yamnet', 'resnet', 'vgg'], required=True, help='Embedding algorithms.')
+@click.option('--algo', type=click.Choice(['openl3', 'yamnet', 'resnet', 'vgg'], required=True, help='Embedding algorithms.'))
 @click.option('--output_dir', required=True, help='Output folder.')
 def extract_embedding(input_dir, algo, output_dir):
     files = glob.glob(input_dir)

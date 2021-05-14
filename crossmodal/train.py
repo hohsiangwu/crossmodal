@@ -86,11 +86,11 @@ def train(embedding_dir, model_dir, audio_alg, image_alg, batch_size, lr, num_wo
 
     log_str = '{}-{}-{}-{}'.format(audio_alg, image_alg, 'mlp', batch_size)
 
-    model_path = '{}/{}/'.format(model_dir, log_str)
+    model_path = '{}/{}/models/{}-'.format(model_dir, log_str, log_str)
     model_path = model_path + '{epoch}-{val_loss:.4f}'
 
     logger = DictLogger(log_str)
-    tensorboard_logger = TensorBoardLogger('{}/logs/'.format(model_path), name=log_str)
+    tensorboard_logger = TensorBoardLogger('{}/{}/logs/'.format(model_dir, log_str), name=log_str)
 
     baseline = Baseline(hparams)
     trainer = Trainer(logger=[logger, tensorboard_logger],

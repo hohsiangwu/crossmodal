@@ -90,4 +90,4 @@ class Baseline(pl.LightningModule):
                                                                patience=3,
                                                                min_lr=1e-6,
                                                                verbose=True)
-        return [optimizer], [scheduler]
+        return {'optimizer': optimizer, 'lr_scheduler': scheduler, 'monitor': 'val_loss'}

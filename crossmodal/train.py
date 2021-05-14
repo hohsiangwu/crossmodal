@@ -11,6 +11,7 @@ import click
 import numpy as np
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
+from pytorch_lightning.loggers import TensorBoardLogger
 from pytorch_lightning.loggers.base import LightningLoggerBase
 from sklearn.model_selection import train_test_split
 import torch
@@ -39,8 +40,8 @@ class DictLogger(LightningLoggerBase):
     def log_hyperparams(self, params):
         self.params.append(params)
 
-    def log_metrics(self, metric, step=None):
-        self.metrics.append(metric)
+    def log_metrics(self, metrics, step=None):
+        self.metrics.append(metrics)
 
     @property
     def version(self):
@@ -84,13 +85,15 @@ def train(embedding_dir, model_dir, audio_alg, image_alg, batch_size, lr, num_wo
     a_train, a_valid, i_train, i_valid = train_test_split(audio_embeddings, image_embeddings, test_size=0.1, random_state=42)
 
     log_str = '{}-{}-{}-{}'.format(audio_alg, image_alg, 'mlp', batch_size)
-    logger = DictLogger(log_str)
 
     model_path = '{}/{}/'.format(model_dir, log_str)
     model_path = model_path + '{epoch}-{val_loss:.4f}'
 
+    logger = DictLogger(log_str)
+    tensorboard_logger = TensorBoardLogger('{}/logs/'.format(model_path), name=log_str)
+
     baseline = Baseline(hparams)
-    trainer = Trainer(logger=[logger],
+    trainer = Trainer(logger=[logger, tensorboard_logger],
                       callbacks=[EarlyStopping(monitor='val_loss', patience=5),
                                  ModelCheckpoint(filepath=model_path, monitor='val_loss', save_top_k=-1)],
                       gpus=hparams.num_gpus,

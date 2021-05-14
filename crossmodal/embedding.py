@@ -1,6 +1,8 @@
 import glob
 import random
 import sys
+import warnings
+warnings.filterwarnings('ignore')
 
 import click
 import librosa

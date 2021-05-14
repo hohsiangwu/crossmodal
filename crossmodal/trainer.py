@@ -13,7 +13,7 @@ from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
 from pytorch_lightning.loggers.base import LightningLoggerBase
 from torch.utils.data import DataLoader, TensorDataset, IterableDataset
 
-from .model import Baseline
+from model import Baseline
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -55,8 +55,8 @@ dim_map = {
 @click.command()
 @click.option('--embedding_dir', required=True, help='Input embedding folder.')
 @click.option('--model_dir', required=True, help='Output model folder.')
-@click.option('--audio_alg', type=click.Choice(['openl3', 'yamnet'], required=True, help='Audio embedding algorithms.')
-@click.option('--image_alg', type=click.Choice(['resnet', 'vgg'], required=True, help='Image embedding algorithms.')
+@click.option('--audio_alg', type=click.Choice(['openl3', 'yamnet'], required=True, help='Audio embedding algorithms.'))
+@click.option('--image_alg', type=click.Choice(['resnet', 'vgg'], required=True, help='Image embedding algorithms.'))
 @click.option('--batch_size', default=2048)
 @click.option('--lr', default=0.0001)
 @click.option('--num_workers', default=1)

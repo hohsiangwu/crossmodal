@@ -15,7 +15,7 @@ from tqdm import tqdm
 
 # Get YamNet code and pre-trained model weights in the same folder yamnet_root/
 # https://github.com/tensorflow/models/tree/master/research/audioset/yamnet
-YAMNET_ROOT = '../models/research/audioset/yamnet/'
+YAMNET_ROOT = 'models/research/audioset/yamnet/'
 sys.path.append(YAMNET_ROOT)
 import params as yamnet_params
 import yamnet as yamnet_model

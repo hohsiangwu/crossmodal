@@ -4,21 +4,29 @@ import sys
 import warnings
 warnings.filterwarnings('ignore')
 
-import click
+from omegaconf import DictConfig
+import hydra
 import librosa
 from more_itertools import chunked
 import numpy as np
-import openl3
 import skvideo.io
 import tensorflow as tf
 from tqdm import tqdm
 
+try:
+    import openl3
+except ModuleNotFoundError:
+    pass
+
 # Get YamNet code and pre-trained model weights in the same folder yamnet_root/
 # https://github.com/tensorflow/models/tree/master/research/audioset/yamnet
-YAMNET_ROOT = 'models/research/audioset/yamnet/'
-sys.path.append(YAMNET_ROOT)
-import params as yamnet_params
-import yamnet as yamnet_model
+try:
+    YAMNET_ROOT = 'models/research/audioset/yamnet/'
+    sys.path.append(YAMNET_ROOT)
+    import params as yamnet_params
+    import yamnet as yamnet_model
+except ModuleNotFoundError:
+    pass
 
 
 def extract_openl3(X, batch_size=64):
@@ -62,17 +70,14 @@ def extract_vgg(X, batch_size=1024):
     return np.array(embeddings)
 
 
-@click.command()
-@click.option('--input_dir', required=True, help='Input folder.')
-@click.option('--algo', type=click.Choice(['openl3', 'yamnet', 'resnet', 'vgg']), required=True, help='Embedding algorithms.')
-@click.option('--output_dir', required=True, help='Output folder.')
-def extract_embedding(input_dir, algo, output_dir):
-    files = sorted(glob.glob('{}/*'.format(input_dir)))
+@hydra.main(config_path='conf', config_name='config')
+def extract_embedding(cfg: DictConfig) -> None:
+    files = sorted(glob.glob('{}/*'.format(cfg.embedding.input_dir)))
     if files[0].endswith('wav'):
-        if algo == 'openl3':
+        if cfg.embedding.algo == 'openl3':
             sr = 48000
             extractor = extract_openl3
-        elif algo == 'yamnet':
+        elif cfg.embedding.algo == 'yamnet':
             sr = 16000
             extractor = extract_yamnet
         else:
@@ -82,20 +87,23 @@ def extract_embedding(input_dir, algo, output_dir):
             X.append(librosa.load(f, sr=sr)[0])
         embeddings = extractor(X)
     elif files[0].endswith('mp4'):
-        if algo == 'resnet':
+        if cfg.embedding.algo == 'resnet':
             extractor = extract_resnet
-        elif algo == 'vgg':
+        elif cfg.embedding.algo == 'vgg':
             extractor = extract_vgg
         else:
             assert False
-        X = []
-        for f in tqdm(files):
-            # TODO: Sampling images
-            X.append(random.choice(skvideo.io.vread(f)))
-        embeddings = extractor(X)
+
+        embeddings = []
+        for chunk in tqdm(chunked(files, cfg.embedding.batch_size)):
+            X = []
+            for f in chunk:
+                # TODO: Sampling images
+                X.append(random.choice(skvideo.io.vread(f)))
+            embeddings.extend(extractor(X))
     else:
         assert False
-    np.save('{}/{}.npy'.format(output_dir, algo), embeddings)
+    np.save('{}/{}.npy'.format(cfg.embedding.output_dir, cfg.embedding.algo), np.array(embeddings))
 
 
 if __name__ == '__main__':
